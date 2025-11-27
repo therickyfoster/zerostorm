@@ -1,0 +1,2242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ZeroStorm: Gamified Interactive Saga</title>
+
+<!-- 
+═══════════════════════════════════════════════════════════════════════════
+ZERO-HARM / ANTI-INVERSION NOTICE
+═══════════════════════════════════════════════════════════════════════════
+This interactive story engine is designed for creative, educational, and 
+entertainment purposes. It features gamification mechanics, mnemonic voting,
+and currency systems to enhance narrative engagement.
+
+INTENDED USE: 
+- Interactive storytelling and narrative exploration
+- Educational game design study
+- Creative writing tool with branching logic
+
+NON-WEAPONIZATION:
+- Do not adapt for manipulation, surveillance, or behavioral exploitation
+- Do not use mnemonic systems for password cracking or social engineering
+- Currency mechanics are fictional and not financial instruments
+
+PRIVACY & SAFETY:
+- All data stored locally in IndexedDB (user device only)
+- No telemetry, tracking, or external data transmission
+- No PII collection beyond optional player chosen name
+
+LICENSE: Open source patterns adapted from community best practices.
+See attributions section at document end.
+═══════════════════════════════════════════════════════════════════════════
+-->
+
+<style>
+/* ═══════════════════════════════════════════════════════════════════════
+   SECTION 1: CORE LAYOUT & RESET
+   ═══════════════════════════════════════════════════════════════════════
+   WHAT: Base HTML/CSS reset and responsive layout foundation
+   HOW TO USE: Automatically applied, mobile-first responsive design
+   EXPECTED OUTCOME: Consistent rendering across devices, no layout shifts
+   ═══════════════════════════════════════════════════════════════════════ */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+  overflow-x: hidden;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: #050512;
+  color: #fff;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   SECTION 2: ANIMATED STORM BACKGROUND
+   ═══════════════════════════════════════════════════════════════════════
+   WHAT: Multi-layer animated background simulating storm atmosphere
+   HOW TO USE: Automatically renders, performance-optimized with CSS transforms
+   EXPECTED OUTCOME: Immersive purple/blue gradient with lightning effects
+   EXPAND: Add more keyframe stages for weather system variations
+   ═══════════════════════════════════════════════════════════════════════ */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(circle at 50% 80%, #6d00ff, #001a3d 70%);
+  animation: stormPulse 8s infinite alternate ease-in-out;
+  z-index: -3;
+}
+
+@keyframes stormPulse {
+  0% { filter: brightness(0.9) saturate(1.2); }
+  50% { filter: brightness(1.1) saturate(1.5); }
+  100% { filter: brightness(1.3) saturate(1.8); }
+}
+
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background: linear-gradient(120deg, rgba(0,0,0,0) 40%, rgba(255,255,255,0.08) 45%, rgba(0,0,0,0) 50%);
+  background-size: 300% 300%;
+  animation: lightning 7s infinite;
+  pointer-events: none;
+  z-index: -2;
+}
+
+@keyframes lightning {
+  0%, 95%, 100% { opacity: 0; }
+  96% { opacity: 1; background-position: 0% 50%; }
+  97% { opacity: 0; background-position: 100% 50%; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   SECTION 3: GAMIFICATION HUD (HEADS-UP DISPLAY)
+   ═══════════════════════════════════════════════════════════════════════
+   WHAT: Persistent overlay showing player stats, currencies, and progress
+   HOW TO USE: Updates automatically via JavaScript state management
+   EXPECTED OUTCOME: Always-visible stats in top-right, collapsible on mobile
+   EXPAND: Add skill tree quick-access, achievement notifications
+   ═══════════════════════════════════════════════════════════════════════ */
+#hud {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background: rgba(10, 10, 30, 0.85);
+  border: 2px solid #9d4dff;
+  border-radius: 12px;
+  padding: 15px;
+  min-width: 280px;
+  backdrop-filter: blur(10px);
+  z-index: 1000;
+  box-shadow: 0 8px 32px rgba(157, 77, 255, 0.3);
+  transition: transform 0.3s ease;
+}
+
+#hud.collapsed {
+  transform: translateX(calc(100% - 50px));
+}
+
+.hud-toggle {
+  position: absolute;
+  left: -30px;
+  top: 10px;
+  background: rgba(157, 77, 255, 0.8);
+  border: none;
+  border-radius: 8px 0 0 8px;
+  padding: 8px;
+  cursor: pointer;
+  font-size: 1.2rem;
+  transition: background 0.2s;
+}
+
+.hud-toggle:hover {
+  background: rgba(157, 77, 255, 1);
+}
+
+.hud-section {
+  margin-bottom: 15px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(157, 77, 255, 0.3);
+}
+
+.hud-section:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+}
+
+.hud-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  opacity: 0.7;
+  margin-bottom: 5px;
+}
+
+.hud-value {
+  font-size: 1.1rem;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.currency-icon {
+  font-size: 1.3rem;
+}
+
+.stat-bar {
+  width: 100%;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-top: 5px;
+}
+
+.stat-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #9d4dff, #6d00ff);
+  transition: width 0.5s ease;
+  box-shadow: 0 0 10px rgba(157, 77, 255, 0.6);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   SECTION 4: SPLASH SCREEN & MNEMONIC SETUP
+   ═══════════════════════════════════════════════════════════════════════
+   WHAT: Initial player onboarding with mnemonic phrase generation
+   HOW TO USE: Player selects 3 words that influence story trajectory
+   EXPECTED OUTCOME: Unique player seed affects randomness and story paths
+   EXPAND: Add more mnemonic word pools, astrological/tarot influences
+   ═══════════════════════════════════════════════════════════════════════ */
+#splash {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  background: rgba(0, 0, 20, 0.9);
+  backdrop-filter: blur(8px);
+  z-index: 2000;
+  animation: fadeIn 1.4s ease forwards;
+  padding: 20px;
+}
+
+.splash-title {
+  font-size: clamp(2rem, 5vw, 3.5rem);
+  letter-spacing: 2px;
+  text-shadow: 0 0 30px #9d4dff, 0 0 60px #6d00ff;
+  margin-bottom: 10px;
+  text-align: center;
+}
+
+.splash-sub {
+  font-size: clamp(1rem, 2.5vw, 1.3rem);
+  opacity: 0.85;
+  margin-bottom: 30px;
+  text-align: center;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(1.05); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.mnemonic-setup {
+  background: rgba(20, 20, 40, 0.8);
+  padding: 30px;
+  border-radius: 15px;
+  border: 2px solid #9d4dff;
+  max-width: 600px;
+  width: 100%;
+}
+
+.mnemonic-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  gap: 10px;
+  margin: 20px 0;
+}
+
+.mnemonic-word {
+  padding: 12px;
+  background: rgba(157, 77, 255, 0.2);
+  border: 2px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s;
+  text-align: center;
+  font-size: 0.95rem;
+}
+
+.mnemonic-word:hover {
+  background: rgba(157, 77, 255, 0.4);
+  transform: translateY(-3px);
+}
+
+.mnemonic-word.selected {
+  background: rgba(157, 77, 255, 0.6);
+  border-color: #fff;
+  box-shadow: 0 0 20px rgba(157, 77, 255, 0.8);
+}
+
+.mnemonic-word.disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.selected-display {
+  margin-top: 20px;
+  padding: 15px;
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 8px;
+  font-size: 1.1rem;
+  text-align: center;
+  min-height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   SECTION 5: BUTTON SYSTEM
+   ═══════════════════════════════════════════════════════════════════════
+   WHAT: Reusable button styles with variants for different actions
+   HOW TO USE: Apply .btn class with optional modifiers (.btn-primary, etc)
+   EXPECTED OUTCOME: Consistent interactive elements with hover feedback
+   EXPAND: Add .btn-danger, .btn-success, .btn-legendary variants
+   ═══════════════════════════════════════════════════════════════════════ */
+.btn {
+  padding: 15px 35px;
+  border: 2px solid #9d4dff;
+  background: rgba(10, 10, 30, 0.7);
+  border-radius: 10px;
+  font-size: 1.1rem;
+  cursor: pointer;
+  transition: all 0.3s;
+  color: #fff;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  box-shadow: 0 4px 15px rgba(157, 77, 255, 0.2);
+}
+
+.btn:hover:not(:disabled) {
+  background: #9d4dff;
+  transform: scale(1.05);
+  box-shadow: 0 6px 25px rgba(157, 77, 255, 0.5);
+}
+
+.btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #9d4dff, #6d00ff);
+  border: none;
+}
+
+.btn-secondary {
+  background: rgba(100, 100, 100, 0.3);
+  border-color: #666;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   SECTION 6: STORY NAVIGATION & CONTENT DISPLAY
+   ═══════════════════════════════════════════════════════════════════════
+   WHAT: Main story content area with choice cards and narrative text
+   HOW TO USE: JavaScript populates dynamically based on player choices
+   EXPECTED OUTCOME: Readable story flow with clear decision points
+   EXPAND: Add image/video support, parallax scrolling for long text
+   ═══════════════════════════════════════════════════════════════════════ */
+#story-container {
+  max-width: 900px;
+  margin: 80px auto;
+  padding: 40px 20px;
+  display: none;
+  opacity: 0;
+  transition: opacity 0.7s ease;
+}
+
+#story-container.active {
+  display: block;
+  opacity: 1;
+}
+
+.story-content {
+  background: rgba(20, 20, 40, 0.85);
+  padding: 40px;
+  border-radius: 15px;
+  border-left: 5px solid #9d4dff;
+  margin-bottom: 30px;
+  line-height: 1.8;
+  font-size: 1.1rem;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+}
+
+.story-title {
+  font-size: 2rem;
+  margin-bottom: 20px;
+  color: #9d4dff;
+  text-shadow: 0 0 15px rgba(157, 77, 255, 0.5);
+}
+
+.story-text {
+  margin-bottom: 20px;
+}
+
+.story-effect {
+  background: rgba(157, 77, 255, 0.15);
+  padding: 15px;
+  border-radius: 8px;
+  margin: 15px 0;
+  border-left: 3px solid #9d4dff;
+  font-style: italic;
+}
+
+.choices-container {
+  display: grid;
+  gap: 20px;
+  margin-top: 30px;
+}
+
+.choice-card {
+  background: rgba(255, 255, 255, 0.08);
+  border: 2px solid transparent;
+  border-left: 5px solid #9d4dff;
+  padding: 25px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.3s;
+  position: relative;
+  overflow: hidden;
+}
+
+.choice-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(157, 77, 255, 0.2), transparent);
+  transition: left 0.5s;
+}
+
+.choice-card:hover::before {
+  left: 100%;
+}
+
+.choice-card:hover {
+  background: rgba(255, 255, 255, 0.15);
+  transform: translateX(8px);
+  border-color: #9d4dff;
+  box-shadow: 0 5px 25px rgba(157, 77, 255, 0.4);
+}
+
+.choice-title {
+  font-size: 1.3rem;
+  margin-bottom: 10px;
+  color: #9d4dff;
+}
+
+.choice-description {
+  opacity: 0.9;
+  line-height: 1.6;
+  margin-bottom: 12px;
+}
+
+.choice-cost {
+  display: flex;
+  gap: 15px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(157, 77, 255, 0.3);
+  font-size: 0.9rem;
+  opacity: 0.85;
+}
+
+.choice-card.locked {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: rgba(100, 50, 50, 0.2);
+  border-left-color: #ff4444;
+}
+
+.choice-card.locked:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+.lock-reason {
+  color: #ff8888;
+  font-size: 0.9rem;
+  margin-top: 10px;
+  font-style: italic;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   SECTION 7: SKILL TREE & PERKS SYSTEM
+   ═══════════════════════════════════════════════════════════════════════
+   WHAT: Visual skill tree with unlock progression and perk descriptions
+   HOW TO USE: Click unlockable skills to spend Wisdom Points
+   EXPECTED OUTCOME: RPG-style character progression affecting story options
+   EXPAND: Add skill synergies, skill reset system, prestige mechanics
+   ═══════════════════════════════════════════════════════════════════════ */
+#skills-panel {
+  position: fixed;
+  top: 0;
+  left: -400px;
+  width: 380px;
+  height: 100%;
+  background: rgba(10, 10, 30, 0.95);
+  border-right: 3px solid #9d4dff;
+  padding: 20px;
+  overflow-y: auto;
+  transition: left 0.4s ease;
+  z-index: 1500;
+  backdrop-filter: blur(10px);
+}
+
+#skills-panel.open {
+  left: 0;
+}
+
+.skills-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 25px;
+  padding-bottom: 15px;
+  border-bottom: 2px solid rgba(157, 77, 255, 0.5);
+}
+
+.skills-close {
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 5px 10px;
+  transition: color 0.3s;
+}
+
+.skills-close:hover {
+  color: #9d4dff;
+}
+
+.skill-tree {
+  display: grid;
+  gap: 15px;
+}
+
+.skill-node {
+  background: rgba(20, 20, 40, 0.8);
+  border: 2px solid rgba(157, 77, 255, 0.4);
+  border-radius: 10px;
+  padding: 15px;
+  transition: all 0.3s;
+  position: relative;
+}
+
+.skill-node.unlocked {
+  border-color: #00ff88;
+  background: rgba(0, 255, 136, 0.1);
+}
+
+.skill-node.locked {
+  opacity: 0.6;
+}
+
+.skill-node.unlockable {
+  cursor: pointer;
+  border-color: #9d4dff;
+}
+
+.skill-node.unlockable:hover {
+  background: rgba(157, 77, 255, 0.2);
+  transform: scale(1.03);
+}
+
+.skill-name {
+  font-size: 1.1rem;
+  font-weight: bold;
+  margin-bottom: 8px;
+  color: #9d4dff;
+}
+
+.skill-node.unlocked .skill-name {
+  color: #00ff88;
+}
+
+.skill-description {
+  font-size: 0.9rem;
+  opacity: 0.85;
+  margin-bottom: 10px;
+  line-height: 1.5;
+}
+
+.skill-cost {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 10px;
+  border-top: 1px solid rgba(157, 77, 255, 0.3);
+  font-size: 0.85rem;
+}
+
+.skill-status {
+  color: #00ff88;
+  font-weight: bold;
+}
+
+.skill-unlock-btn {
+  padding: 6px 15px;
+  font-size: 0.85rem;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   SECTION 8: ACHIEVEMENT & NOTIFICATION SYSTEM
+   ═══════════════════════════════════════════════════════════════════════
+   WHAT: Toast notifications for achievements, currency gains, unlocks
+   HOW TO USE: Automatically triggered by game events via showNotification()
+   EXPECTED OUTCOME: Non-intrusive feedback sliding in from right side
+   EXPAND: Add achievement gallery, share functionality, rarity tiers
+   ═══════════════════════════════════════════════════════════════════════ */
+.notification {
+  position: fixed;
+  top: 100px;
+  right: -400px;
+  background: rgba(157, 77, 255, 0.95);
+  padding: 20px 25px;
+  border-radius: 10px;
+  border: 2px solid #fff;
+  max-width: 350px;
+  z-index: 2000;
+  animation: slideInNotif 0.5s forwards, slideOutNotif 0.5s 3.5s forwards;
+  box-shadow: 0 10px 40px rgba(157, 77, 255, 0.6);
+}
+
+@keyframes slideInNotif {
+  to { right: 20px; }
+}
+
+@keyframes slideOutNotif {
+  to { right: -400px; }
+}
+
+.notif-title {
+  font-size: 1.2rem;
+  font-weight: bold;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.notif-body {
+  font-size: 1rem;
+  opacity: 0.95;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   SECTION 9: VOTING INTERFACE
+   ═══════════════════════════════════════════════════════════════════════
+   WHAT: Democratic decision-making system for major story branches
+   HOW TO USE: Players vote with Fate Tokens on story direction
+   EXPECTED OUTCOME: Weighted voting influences narrative trajectory
+   EXPAND: Add vote history, coalition building, vote delegation
+   ═══════════════════════════════════════════════════════════════════════ */
+.voting-container {
+  background: rgba(20, 20, 40, 0.9);
+  border: 3px solid #ffd700;
+  border-radius: 15px;
+  padding: 30px;
+  margin: 30px 0;
+  box-shadow: 0 0 40px rgba(255, 215, 0, 0.3);
+}
+
+.voting-title {
+  font-size: 1.5rem;
+  color: #ffd700;
+  margin-bottom: 15px;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+
+.voting-options {
+  display: grid;
+  gap: 15px;
+  margin: 20px 0;
+}
+
+.vote-option {
+  background: rgba(255, 255, 255, 0.05);
+  border: 2px solid rgba(255, 215, 0, 0.5);
+  border-radius: 10px;
+  padding: 20px;
+  cursor: pointer;
+  transition: all 0.3s;
+  position: relative;
+  overflow: hidden;
+}
+
+.vote-option:hover {
+  background: rgba(255, 215, 0, 0.15);
+  transform: scale(1.02);
+}
+
+.vote-option.voted {
+  border-color: #00ff88;
+  background: rgba(0, 255, 136, 0.1);
+}
+
+.vote-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.vote-label {
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: #ffd700;
+}
+
+.vote-count {
+  font-size: 0.9rem;
+  opacity: 0.8;
+}
+
+.vote-bar {
+  width: 100%;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-top: 10px;
+}
+
+.vote-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #ffd700, #ffed4e);
+  transition: width 0.5s ease;
+}
+
+.vote-controls {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+  justify-content: center;
+}
+
+.token-input {
+  width: 80px;
+  padding: 10px;
+  background: rgba(0, 0, 0, 0.5);
+  border: 2px solid #ffd700;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 1rem;
+  text-align: center;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   SECTION 10: INVENTORY & MODALS
+   ═══════════════════════════════════════════════════════════════════════
+   WHAT: Item collection display and modal dialog system
+   HOW TO USE: Click inventory button to view collected items and effects
+   EXPECTED OUTCOME: Persistent item tracking with visual feedback
+   EXPAND: Add item trading, crafting, equipment slots, item rarity
+   ═══════════════════════════════════════════════════════════════════════ */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 3000;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s;
+  backdrop-filter: blur(5px);
+}
+
+.modal-overlay.active {
+  opacity: 1;
+  pointer-events: all;
+}
+
+.modal-content {
+  background: rgba(20, 20, 40, 0.98);
+  border: 3px solid #9d4dff;
+  border-radius: 15px;
+  padding: 40px;
+  max-width: 600px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+  position: relative;
+  box-shadow: 0 20px 60px rgba(157, 77, 255, 0.5);
+}
+
+.modal-close {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 1.8rem;
+  cursor: pointer;
+  padding: 5px 10px;
+  transition: color 0.3s;
+}
+
+.modal-close:hover {
+  color: #ff4444;
+}
+
+.inventory-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 15px;
+  margin-top: 20px;
+}
+
+.inventory-item {
+  background: rgba(157, 77, 255, 0.2);
+  border: 2px solid rgba(157, 77, 255, 0.5);
+  border-radius: 10px;
+  padding: 15px;
+  text-align: center;
+  transition: all 0.3s;
+}
+
+.inventory-item:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 30px rgba(157, 77, 255, 0.5);
+}
+
+.item-icon {
+  font-size: 2.5rem;
+  margin-bottom: 10px;
+}
+
+.item-name {
+  font-weight: bold;
+  margin-bottom: 5px;
+  color: #9d4dff;
+}
+
+.item-description {
+  font-size: 0.85rem;
+  opacity: 0.8;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   SECTION 11: BREADCRUMBS & NAVIGATION AIDS
+   ═══════════════════════════════════════════════════════════════════════
+   WHAT: Story path tracking and quick navigation history
+   HOW TO USE: Automatically populated, click to review past choices
+   EXPECTED OUTCOME: Player can see their narrative journey
+   EXPAND: Add chapter bookmarks, timeline view, alternate path preview
+   ═══════════════════════════════════════════════════════════════════════ */
+.breadcrumbs {
+  background: rgba(20, 20, 40, 0.7);
+  padding: 15px 25px;
+  border-radius: 10px;
+  margin: 20px 0;
+  font-size: 0.9rem;
+  opacity: 0.9;
+  border-left: 3px solid #9d4dff;
+}
+
+.breadcrumb-item {
+  display: inline;
+  color: #9d4dff;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.breadcrumb-item:hover {
+  color: #fff;
+  text-decoration: underline;
+}
+
+.breadcrumb-separator {
+  margin: 0 8px;
+  opacity: 0.5;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   SECTION 12: RESPONSIVE DESIGN
+   ═══════════════════════════════════════════════════════════════════════
+   WHAT: Mobile-friendly adaptations for smaller screens
+   HOW TO USE: Automatic responsive breakpoints
+   EXPECTED OUTCOME: Usable interface on phones and tablets
+   EXPAND: Add touch gestures, portrait/landscape optimizations
+   ═══════════════════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+  #hud {
+    top: 10px;
+    right: 10px;
+    min-width: 220px;
+    padding: 12px;
+  }
+
+  #skills-panel {
+    width: 100%;
+    left: -100%;
+  }
+
+  .story-content {
+    padding: 25px;
+    font-size: 1rem;
+  }
+
+  .mnemonic-grid {
+    grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+  }
+
+  .modal-content {
+    padding: 25px;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   SECTION 13: UTILITY ANIMATIONS
+   ═══════════════════════════════════════════════════════════════════════
+   WHAT: Reusable animation keyframes for various UI elements
+   HOW TO USE: Apply via animation property in CSS or JavaScript
+   EXPECTED OUTCOME: Smooth transitions and attention-grabbing effects
+   EXPAND: Add particle effects, screen shake, color pulses
+   ═══════════════════════════════════════════════════════════════════════ */
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+@keyframes glow {
+  0%, 100% { box-shadow: 0 0 10px rgba(157, 77, 255, 0.5); }
+  50% { box-shadow: 0 0 30px rgba(157, 77, 255, 0.9); }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fadein {
+  animation: fadeInUp 0.6s ease forwards;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   SECTION 14: PRINT STYLES
+   ═══════════════════════════════════════════════════════════════════════
+   WHAT: Optimized layout for printing story content
+   HOW TO USE: Browser print function automatically applies
+   EXPECTED OUTCOME: Clean, readable printed document
+   ═══════════════════════════════════════════════════════════════════════ */
+@media print {
+  body::before, body::after, #hud, #skills-panel, .btn, .notification {
+    display: none !important;
+  }
+
+  body {
+    background: #fff;
+    color: #000;
+  }
+
+  .story-content {
+    background: #fff;
+    border: 2px solid #000;
+    page-break-inside: avoid;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   SECTION 15: ACCESSIBILITY ENHANCEMENTS
+   ═══════════════════════════════════════════════════════════════════════
+   WHAT: Screen reader support and keyboard navigation
+   HOW TO USE: Automatically applied for assistive technologies
+   EXPECTED OUTCOME: WCAG 2.1 Level AA compliance
+   EXPAND: Add ARIA live regions, focus indicators, reduced motion
+   ═══════════════════════════════════════════════════════════════════════ */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+*:focus-visible {
+  outline: 3px solid #9d4dff;
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════════════════
+     HUD (HEADS-UP DISPLAY)
+     Persistent gamification overlay showing player stats
+     ═══════════════════════════════════════════════════════════════════════ -->
+<div id="hud">
+  <button class="hud-toggle" onclick="toggleHUD()" aria-label="Toggle HUD">⚡</button>
+  
+  <div class="hud-section">
+    <div class="hud-label">Storm Shards</div>
+    <div class="hud-value">
+      <span class="currency-icon">💎</span>
+      <span id="shards-display">0</span>
+    </div>
+  </div>
+
+  <div class="hud-section">
+    <div class="hud-label">Wisdom Points</div>
+    <div class="hud-value">
+      <span class="currency-icon">🧠</span>
+      <span id="wisdom-display">0</span>
+    </div>
+  </div>
+
+  <div class="hud-section">
+    <div class="hud-label">Fate Tokens</div>
+    <div class="hud-value">
+      <span class="currency-icon">🎲</span>
+      <span id="fate-display">0</span>
+    </div>
+  </div>
+
+  <div class="hud-section">
+    <div class="hud-label">Influence Level</div>
+    <div class="hud-value">
+      <span id="level-display">1</span>
+    </div>
+    <div class="stat-bar">
+      <div class="stat-fill" id="xp-bar" style="width: 0%"></div>
+    </div>
+    <div style="font-size: 0.75rem; margin-top: 5px; opacity: 0.7;">
+      <span id="xp-current">0</span> / <span id="xp-needed">100</span>
+    </div>
+  </div>
+
+  <div style="display: flex; gap: 10px; margin-top: 15px;">
+    <button class="btn btn-secondary" style="padding: 8px 12px; font-size: 0.8rem;" onclick="openSkills()">Skills</button>
+    <button class="btn btn-secondary" style="padding: 8px 12px; font-size: 0.8rem;" onclick="openInventory()">Items</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════
+     SKILLS PANEL
+     Side panel for skill tree and character progression
+     ═══════════════════════════════════════════════════════════════════════ -->
+<div id="skills-panel">
+  <div class="skills-header">
+    <h2 style="margin: 0;">Skill Tree</h2>
+    <button class="skills-close" onclick="closeSkills()" aria-label="Close Skills">×</button>
+  </div>
+  <div id="skill-tree" class="skill-tree"></div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════
+     SPLASH SCREEN & MNEMONIC SETUP
+     Initial player onboarding with mnemonic phrase selection
+     ═══════════════════════════════════════════════════════════════════════ -->
+<div id="splash">
+  <div class="splash-title">ZEROSTORM</div>
+  <div class="splash-sub">Where choices echo through the rifts of time</div>
+  
+  <div class="mnemonic-setup">
+    <h3 style="text-align: center; margin-bottom: 15px;">Choose Your Mnemonic Constellation</h3>
+    <p style="text-align: center; opacity: 0.85; margin-bottom: 20px;">
+      Select 3 words that will shape your journey's essence. These anchors influence your path through the storm.
+    </p>
+    
+    <div class="mnemonic-grid" id="mnemonic-grid"></div>
+    
+    <div class="selected-display" id="selected-display">
+      Your constellation will appear here...
+    </div>
+    
+    <div style="text-align: center; margin-top: 25px;">
+      <button class="btn btn-primary" id="begin-btn" onclick="beginJourney()" disabled>
+        BEGIN YOUR SAGA
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════
+     STORY CONTAINER
+     Main narrative display area with choices and effects
+     ═══════════════════════════════════════════════════════════════════════ -->
+<div id="story-container">
+  <div class="breadcrumbs" id="breadcrumbs"></div>
+  
+  <div class="story-content">
+    <h2 class="story-title" id="story-title"></h2>
+    <div class="story-text" id="story-text"></div>
+    <div id="story-effects"></div>
+  </div>
+  
+  <div id="voting-area"></div>
+  <div class="choices-container" id="choices-container"></div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════
+     MODALS
+     Inventory and other overlay interfaces
+     ═══════════════════════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="inventory-modal">
+  <div class="modal-content">
+    <button class="modal-close" onclick="closeInventory()" aria-label="Close Inventory">×</button>
+    <h2 style="margin-bottom: 20px;">Your Inventory</h2>
+    <div class="inventory-grid" id="inventory-grid"></div>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════════
+   SECTION 1: INDEXEDDB INITIALIZATION
+   ═══════════════════════════════════════════════════════════════════════
+   WHAT: Persistent local storage for game state across sessions
+   HOW TO USE: Automatically initializes on page load
+   EXPECTED OUTCOME: Player progress saved and restored automatically
+   EXPAND: Add cloud sync, multiple save slots, import/export functionality
+   ═══════════════════════════════════════════════════════════════════════ */
+
+let db;
+const DB_NAME = 'ZeroStormDB';
+const DB_VERSION = 1;
+
+function initDB() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
+    
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      db = request.result;
+      resolve(db);
+    };
+    
+    request.onupgradeneeded = (event) => {
+      const db = event.target.result;
+      
+      if (!db.objectStoreNames.contains('gameState')) {
+        db.createObjectStore('gameState', { keyPath: 'id' });
+      }
+      if (!db.objectStoreNames.contains('choices')) {
+        db.createObjectStore('choices', { keyPath: 'timestamp' });
+      }
+      if (!db.objectStoreNames.contains('achievements')) {
+        db.createObjectStore('achievements', { keyPath: 'id' });
+      }
+    };
+  });
+}
+
+function saveToDB(storeName, data) {
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction([storeName], 'readwrite');
+    const store = transaction.objectStore(storeName);
+    const request = store.put(data);
+    
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+function loadFromDB(storeName, key) {
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction([storeName], 'readonly');
+    const store = transaction.objectStore(storeName);
+    const request = store.get(key);
+    
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   SECTION 2: GAME STATE MANAGEMENT
+   ═══════════════════════════════════════════════════════════════════════
+   WHAT: Core game state object tracking all player progress
+   HOW TO USE: Modified by game events, persisted to IndexedDB
+   EXPECTED OUTCOME: Centralized state management with save/load
+   EXPAND: Add state versioning, undo/redo, state export
+   ═══════════════════════════════════════════════════════════════════════ */
+
+let gameState = {
+  id: 'main',
+  mnemonic: [],
+  currencies: {
+    shards: 50,        // Storm Shards: exploration & discovery
+    wisdom: 10,        // Wisdom Points: skill unlocks
+    fate: 3            // Fate Tokens: voting & major decisions
+  },
+  level: 1,
+  xp: 0,
+  xpNeeded: 100,
+  skills: {},
+  inventory: [],
+  currentChapter: 'start',
+  pathHistory: [],
+  votes: {},
+  achievements: [],
+  stats: {
+    choicesMade: 0,
+    chaptersCompleted: 0,
+    secretsFound: 0,
+    votesCast: 0
+  }
+};
+
+async function saveGameState() {
+  try {
+    await saveToDB('gameState', gameState);
+    console.log('Game state saved successfully');
+  } catch (error) {
+    console.error('Failed to save game state:', error);
+  }
+}
+
+async function loadGameState() {
+  try {
+    const saved = await loadFromDB('gameState', 'main');
+    if (saved) {
+      gameState = { ...gameState, ...saved };
+      updateHUD();
+      console.log('Game state loaded successfully');
+    }
+  } catch (error) {
+    console.error('Failed to load game state:', error);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   SECTION 3: MNEMONIC WORD POOL
+   ═══════════════════════════════════════════════════════════════════════
+   WHAT: Word database for mnemonic constellation creation
+   HOW TO USE: Player selects 3 words during onboarding
+   EXPECTED OUTCOME: Unique player seed influences RNG and story branches
+   EXPAND: Add thematic word pools, astrological connections, word combos
+   ═══════════════════════════════════════════════════════════════════════ */
+
+const mnemonicWords = [
+  'Storm', 'Void', 'Echo', 'Rift', 'Dawn',
+  'Shadow', 'Pulse', 'Nexus', 'Flux', 'Ember',
+  'Mystic', 'Quantum', 'Phoenix', 'Zenith', 'Prism',
+  'Catalyst', 'Harmony', 'Entropy', 'Oracle', 'Cipher'
+];
+
+let selectedWords = [];
+
+function initMnemonicGrid() {
+  const grid = document.getElementById('mnemonic-grid');
+  grid.innerHTML = '';
+  
+  mnemonicWords.forEach(word => {
+    const wordEl = document.createElement('div');
+    wordEl.className = 'mnemonic-word';
+    wordEl.textContent = word;
+    wordEl.onclick = () => toggleWord(word, wordEl);
+    grid.appendChild(wordEl);
+  });
+}
+
+function toggleWord(word, element) {
+  if (selectedWords.includes(word)) {
+    selectedWords = selectedWords.filter(w => w !== word);
+    element.classList.remove('selected');
+  } else if (selectedWords.length < 3) {
+    selectedWords.push(word);
+    element.classList.add('selected');
+  } else {
+    showNotification('Maximum Reached', 'You can only select 3 words. Deselect one first.');
+    return;
+  }
+  
+  // Update disabled states
+  document.querySelectorAll('.mnemonic-word').forEach(el => {
+    if (selectedWords.length >= 3 && !el.classList.contains('selected')) {
+      el.classList.add('disabled');
+    } else {
+      el.classList.remove('disabled');
+    }
+  });
+  
+  updateSelectedDisplay();
+}
+
+function updateSelectedDisplay() {
+  const display = document.getElementById('selected-display');
+  const beginBtn = document.getElementById('begin-btn');
+  
+  if (selectedWords.length === 0) {
+    display.textContent = 'Your constellation will appear here...';
+    beginBtn.disabled = true;
+  } else if (selectedWords.length < 3) {
+    display.innerHTML = `<span style="color: #9d4dff;">${selectedWords.join(' • ')}</span><br><span style="font-size: 0.9rem; opacity: 0.7;">Select ${3 - selectedWords.length} more...</span>`;
+    beginBtn.disabled = true;
+  } else {
+    display.innerHTML = `<span style="color: #00ff88; font-size: 1.2rem;">✦ ${selectedWords.join(' • ')} ✦</span>`;
+    beginBtn.disabled = false;
+  }
+}
+
+async function beginJourney() {
+  if (selectedWords.length !== 3) return;
+  
+  gameState.mnemonic = [...selectedWords];
+  
+  // Apply mnemonic bonuses
+  const bonuses = calculateMnemonicBonuses(selectedWords);
+  gameState.currencies.shards += bonuses.shards;
+  gameState.currencies.wisdom += bonuses.wisdom;
+  gameState.currencies.fate += bonuses.fate;
+  
+  await saveGameState();
+  
+  document.getElementById('splash').style.opacity = '0';
+  setTimeout(() => {
+    document.getElementById('splash').style.display = 'none';
+    document.getElementById('story-container').classList.add('active');
+    loadChapter('start');
+  }, 700);
+  
+  showNotification('Mnemonic Locked', `Your constellation [${selectedWords.join(', ')}] grants you starting bonuses!`);
+}
+
+function calculateMnemonicBonuses(words) {
+  // Simple hash-based bonus calculation
+  const hash = words.join('').split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  return {
+    shards: (hash % 30) + 10,
+    wisdom: (hash % 10) + 5,
+    fate: (hash % 3) + 2
+  };
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   SECTION 4: SKILL SYSTEM
+   ═══════════════════════════════════════════════════════════════════════
+   WHAT: Skill tree with unlock progression and passive/active abilities
+   HOW TO USE: Spend Wisdom Points to unlock skills
+   EXPECTED OUTCOME: Skills affect story choices and outcomes
+   EXPAND: Add skill prerequisites, skill combos, mastery levels
+   ═══════════════════════════════════════════════════════════════════════ */
+
+const skillTree = {
+  stormsense: {
+    name: 'Stormsense',
+    description: 'Sense hidden paths and secrets within the storm. Unlocks special choice options.',
+    cost: 10,
+    icon: '⚡',
+    prerequisites: [],
+    effects: { secretDetection: true }
+  },
+  voidwalker: {
+    name: 'Voidwalker',
+    description: 'Navigate between realities. Gain +5 Fate Tokens and unlock dimensional choices.',
+    cost: 15,
+    icon: '🌀',
+    prerequisites: [],
+    effects: { dimensionalTravel: true, fateBonus: 5 }
+  },
+  echomancer: {
+    name: 'Echomancer',
+    description: 'Hear whispers from alternate timelines. Grants preview of choice outcomes.',
+    cost: 12,
+    icon: '👁️',
+    prerequisites: ['stormsense'],
+    effects: { choicePreview: true }
+  },
+  riftweaver: {
+    name: 'Riftweaver',
+    description: 'Manipulate the fabric of reality. +50% Storm Shard gains from exploration.',
+    cost: 20,
+    icon: '✨',
+    prerequisites: ['stormsense', 'voidwalker'],
+    effects: { shardMultiplier: 1.5 }
+  },
+  fatekeeper: {
+    name: 'Fatekeeper',
+    description: 'Master destiny itself. Voting power doubled and can influence story direction.',
+    cost: 25,
+    icon: '👑',
+    prerequisites: ['echomancer', 'voidwalker'],
+    effects: { voteMultiplier: 2, storyInfluence: true }
+  }
+};
+
+function renderSkillTree() {
+  const container = document.getElementById('skill-tree');
+  container.innerHTML = '';
+  
+  Object.entries(skillTree).forEach(([id, skill]) => {
+    const node = document.createElement('div');
+    node.className = 'skill-node';
+    
+    const isUnlocked = gameState.skills[id];
+    const canUnlock = !isUnlocked && 
+                     skill.prerequisites.every(pre => gameState.skills[pre]) &&
+                     gameState.currencies.wisdom >= skill.cost;
+    
+    if (isUnlocked) {
+      node.classList.add('unlocked');
+    } else if (canUnlock) {
+      node.classList.add('unlockable');
+      node.onclick = () => unlockSkill(id);
+    } else {
+      node.classList.add('locked');
+    }
+    
+    node.innerHTML = `
+      <div style="font-size: 2rem; margin-bottom: 10px;">${skill.icon}</div>
+      <div class="skill-name">${skill.name}</div>
+      <div class="skill-description">${skill.description}</div>
+      <div class="skill-cost">
+        ${isUnlocked ? 
+          '<span class="skill-status">✓ UNLOCKED</span>' :
+          `<span>🧠 ${skill.cost} Wisdom</span>
+           ${canUnlock ? '<button class="btn btn-primary skill-unlock-btn">Unlock</button>' : ''}`
+        }
+      </div>
+    `;
+    
+    container.appendChild(node);
+  });
+}
+
+async function unlockSkill(skillId) {
+  const skill = skillTree[skillId];
+  
+  if (gameState.currencies.wisdom < skill.cost) {
+    showNotification('Insufficient Wisdom', 'You need more Wisdom Points to unlock this skill.');
+    return;
+  }
+  
+  gameState.currencies.wisdom -= skill.cost;
+  gameState.skills[skillId] = true;
+  
+  // Apply skill effects
+  if (skill.effects.fateBonus) {
+    gameState.currencies.fate += skill.effects.fateBonus;
+  }
+  
+  await saveGameState();
+  updateHUD();
+  renderSkillTree();
+  
+  showNotification('Skill Unlocked!', `${skill.name}: ${skill.description}`);
+}
+
+function openSkills() {
+  document.getElementById('skills-panel').classList.add('open');
+  renderSkillTree();
+}
+
+function closeSkills() {
+  document.getElementById('skills-panel').classList.remove('open');
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   SECTION 5: CHAPTER DATABASE
+   ═══════════════════════════════════════════════════════════════════════
+   WHAT: Story content with branching narrative structure
+   HOW TO USE: Define chapters with choices, effects, and requirements
+   EXPECTED OUTCOME: Dynamic storytelling based on player state
+   EXPAND: Add chapter templates, procedural generation, mod support
+   ═══════════════════════════════════════════════════════════════════════ */
+
+const chapters = {
+  start: {
+    title: 'The Awakening',
+    text: `A rift tears open the sky above. Purple lightning cascades through dimensions, each bolt carrying whispers from worlds that never were. Your ${gameState.mnemonic[0] || 'essence'} resonates with the storm's frequency.
+    
+    The ground beneath your feet crystallizes into patterns that echo your ${gameState.mnemonic[1] || 'nature'}. Something ancient stirs within you—a power connected to ${gameState.mnemonic[2] || 'mystery'}.
+    
+    Three paths shimmer before you, each one pulsing with possibility.`,
+    
+    choices: [
+      {
+        id: 'scout',
+        label: '🔍 Scout the Perimeter',
+        description: 'Observe the rift from a safe distance. Knowledge before action.',
+        cost: { shards: 5 },
+        rewards: { wisdom: 3, xp: 10 },
+        requirements: {}
+      },
+      {
+        id: 'charge',
+        label: '⚔️ Charge the Rift',
+        description: 'Fortune favors the bold. Leap into the unknown.',
+        cost: { shards: 10 },
+        rewards: { shards: 20, xp: 15 },
+        requirements: {}
+      },
+      {
+        id: 'listen',
+        label: '🧘 Listen to the Storm',
+        description: 'Stand still and attune yourself to the cosmic frequency.',
+        cost: {},
+        rewards: { wisdom: 5, xp: 12 },
+        requirements: {}
+      },
+      {
+        id: 'manipulate',
+        label: '✨ Manipulate the Rift',
+        description: 'Use your understanding of reality to reshape the rift itself.',
+        cost: { wisdom: 5, fate: 1 },
+        rewards: { shards: 30, wisdom: 8, xp: 25 },
+        requirements: { skills: ['riftweaver'] },
+        secret: true
+      }
+    ]
+  },
+  
+  scout: {
+    title: 'The Observation',
+    text: `You crouch low, every sense extended. The rift pulses like a living heart, each beat sending ripples through reality.
+    
+    Through your careful observation, you notice patterns: the storm responds to emotion, to thought, to will. A crystalline shard materializes at your feet, glowing with captured starlight.`,
+    
+    effects: [
+      { type: 'item', item: { id: 'rift_shard', name: 'Rift Shard', icon: '💠', description: 'A fragment of collapsed possibility' } }
+    ],
+    
+    choices: [
+      {
+        id: 'take_shard',
+        label: '💎 Take the Shard',
+        description: 'Claim this power. Let it merge with your being.',
+        cost: {},
+        rewards: { shards: 15, xp: 10 },
+        requirements: {}
+      },
+      {
+        id: 'study_shard',
+        label: '📖 Study the Shard',
+        description: 'Understand before possessing. Knowledge is true power.',
+        cost: {},
+        rewards: { wisdom: 8, xp: 15 },
+        requirements: {}
+      }
+    ]
+  },
+  
+  charge: {
+    title: 'The Leap',
+    text: `You sprint toward the rift. Time dilates. Each step carries you across lifetimes.
+    
+    The boundary between dimensions feels like passing through silk made of lightning. On the other side, gravity is... optional. You float in a realm where ${gameState.mnemonic[0]} and ${gameState.mnemonic[2]} intertwine.`,
+    
+    voting: {
+      question: 'A voice echoes from the void: "Shall this realm embrace chaos or order?"',
+      options: [
+        { id: 'chaos', label: 'Embrace Chaos', description: 'Let entropy guide the evolution of this reality' },
+        { id: 'order', label: 'Impose Order', description: 'Structure gives meaning to existence' }
+      ]
+    },
+    
+    choices: [
+      {
+        id: 'explore_void',
+        label: '🌌 Explore the Void',
+        description: 'Venture deeper into this impossible space.',
+        cost: { shards: 10 },
+        rewards: { wisdom: 6, xp: 20 },
+        requirements: {}
+      },
+      {
+        id: 'return',
+        label: '🔙 Return Home',
+        description: 'You\'ve seen enough. Reality calls you back.',
+        cost: {},
+        rewards: { shards: 5, xp: 8 },
+        requirements: {}
+      }
+    ]
+  },
+  
+  listen: {
+    title: 'The Attunement',
+    text: `You close your eyes. The storm's electricity outlines every atom, every possibility, every choice never made.
+    
+    Beneath the surface, you feel something vast—a mycelial network of consciousness spanning dimensions. It whispers secrets in frequencies beyond sound.
+    
+    ${gameState.skills.stormsense ? '✦ Your Stormsense amplifies the signal. You can hear the future attempting to communicate.' : 'The whispers remain just beyond understanding.'}`,
+    
+    effects: [
+      { type: 'currency', currency: 'wisdom', amount: 5 }
+    ],
+    
+    choices: [
+      {
+        id: 'follow_network',
+        label: '🕸️ Follow the Network',
+        description: 'Descend into the consciousness web beneath reality.',
+        cost: {},
+        rewards: { wisdom: 10, xp: 18 },
+        requirements: {}
+      },
+      {
+        id: 'ascend',
+        label: '⬆️ Ascend',
+        description: 'Rise above the storm. Seek the source.',
+        cost: { fate: 1 },
+        rewards: { shards: 25, wisdom: 8, xp: 22 },
+        requirements: {}
+      },
+      {
+        id: 'commune',
+        label: '🔮 Commune with Echoes',
+        description: 'Speak with the alternate versions of yourself.',
+        cost: { wisdom: 5 },
+        rewards: { fate: 2, xp: 20 },
+        requirements: { skills: ['echomancer'] },
+        secret: true
+      }
+    ]
+  },
+  
+  manipulate: {
+    title: 'The Reshaping',
+    text: `Your hands move with practiced grace, weaving threads of reality like a master loom operator. The rift bends to your will, reshaping itself into a stable portal.
+    
+    On the other side, you glimpse infinite possibilities—all the worlds that could be, waiting for someone with the courage to claim them.
+    
+    Power surges through you. You've just rewritten a fundamental law of this universe.`,
+    
+    effects: [
+      { type: 'achievement', achievement: { id: 'reality_weaver', name: 'Reality Weaver', description: 'Reshape a cosmic rift' } },
+      { type: 'item', item: { id: 'weavers_mark', name: "Weaver's Mark", icon: '✨', description: 'Proof of mastery over dimensional fabric' } }
+    ],
+    
+    choices: [
+      {
+        id: 'create_sanctuary',
+        label: '🏛️ Create a Sanctuary',
+        description: 'Use your power to forge a safe haven between worlds.',
+        cost: { wisdom: 10, fate: 2 },
+        rewards: { shards: 50, xp: 40 },
+        requirements: {}
+      },
+      {
+        id: 'open_gateways',
+        label: '🌐 Open Multiple Gateways',
+        description: 'Why stop at one? Create a network of portals.',
+        cost: { shards: 30, fate: 3 },
+        rewards: { wisdom: 15, xp: 45 },
+        requirements: { skills: ['voidwalker'] }
+      }
+    ]
+  }
+};
+
+/* ═══════════════════════════════════════════════════════════════════════
+   SECTION 6: CHAPTER LOADING & RENDERING
+   ═══════════════════════════════════════════════════════════════════════
+   WHAT: Dynamic chapter display with choice validation
+   HOW TO USE: Called when player makes choices or loads saved game
+   EXPECTED OUTCOME: Story text, choices, and effects rendered correctly
+   EXPAND: Add transitions, sound effects, image support
+   ═══════════════════════════════════════════════════════════════════════ */
+
+function loadChapter(chapterId) {
+  const chapter = chapters[chapterId];
+  if (!chapter) {
+    console.error(`Chapter ${chapterId} not found`);
+    return;
+  }
+  
+  gameState.currentChapter = chapterId;
+  gameState.pathHistory.push(chapterId);
+  
+  // Render chapter content
+  document.getElementById('story-title').textContent = chapter.title;
+  document.getElementById('story-text').textContent = chapter.text;
+  
+  // Render effects
+  const effectsContainer = document.getElementById('story-effects');
+  effectsContainer.innerHTML = '';
+  
+  if (chapter.effects) {
+    chapter.effects.forEach(effect => {
+      applyEffect(effect, effectsContainer);
+    });
+  }
+  
+  // Render voting (if present)
+  const votingArea = document.getElementById('voting-area');
+  votingArea.innerHTML = '';
+  
+  if (chapter.voting) {
+    renderVoting(chapter.voting, votingArea);
+  }
+  
+  // Render choices
+  const choicesContainer = document.getElementById('choices-container');
+  choicesContainer.innerHTML = '';
+  
+  chapter.choices.forEach((choice, index) => {
+    // Check if choice should be visible (secret choices require skills)
+    if (choice.secret && !meetsRequirements(choice.requirements)) {
+      return; // Skip rendering secret choice
+    }
+    
+    const choiceEl = createChoiceElement(choice);
+    choicesEl.style.animationDelay = `${index * 0.1}s`;
+    choicesContainer.appendChild(choiceEl);
+  });
+  
+  // Update breadcrumbs
+  updateBreadcrumbs();
+  
+  // Save progress
+  saveGameState();
+  
+  // Scroll to top
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function createChoiceElement(choice) {
+  const canAfford = Object.entries(choice.cost || {}).every(([curr, amt]) => 
+    gameState.currencies[curr] >= amt
+  );
+  
+  const meetsReqs = meetsRequirements(choice.requirements);
+  const isLocked = !canAfford || !meetsReqs;
+  
+  const div = document.createElement('div');
+  div.className = 'choice-card animate-fadein';
+  if (isLocked) div.classList.add('locked');
+  
+  let costHTML = '';
+  if (choice.cost && Object.keys(choice.cost).length > 0) {
+    costHTML = '<div class="choice-cost">';
+    for (const [curr, amt] of Object.entries(choice.cost)) {
+      const icon = curr === 'shards' ? '💎' : curr === 'wisdom' ? '🧠' : '🎲';
+      costHTML += `<span>${icon} ${amt}</span>`;
+    }
+    costHTML += '</div>';
+  }
+  
+  let lockReason = '';
+  if (isLocked) {
+    if (!canAfford) {
+      lockReason = '<div class="lock-reason">⚠️ Insufficient resources</div>';
+    } else if (!meetsReqs) {
+      const reqSkills = choice.requirements.skills || [];
+      lockReason = `<div class="lock-reason">🔒 Requires: ${reqSkills.map(s => skillTree[s].name).join(', ')}</div>`;
+    }
+  }
+  
+  div.innerHTML = `
+    <div class="choice-title">${choice.label}</div>
+    <div class="choice-description">${choice.description}</div>
+    ${costHTML}
+    ${lockReason}
+  `;
+  
+  if (!isLocked) {
+    div.onclick = () => makeChoice(choice);
+  }
+  
+  return div;
+}
+
+function meetsRequirements(requirements) {
+  if (!requirements) return true;
+  
+  if (requirements.skills) {
+    return requirements.skills.every(skill => gameState.skills[skill]);
+  }
+  
+  if (requirements.level) {
+    return gameState.level >= requirements.level;
+  }
+  
+  return true;
+}
+
+async function makeChoice(choice) {
+  // Deduct costs
+  for (const [curr, amt] of Object.entries(choice.cost || {})) {
+    gameState.currencies[curr] -= amt;
+  }
+  
+  // Grant rewards
+  for (const [reward, amt] of Object.entries(choice.rewards || {})) {
+    if (reward === 'xp') {
+      gainXP(amt);
+    } else {
+      gameState.currencies[reward] = (gameState.currencies[reward] || 0) + amt;
+    }
+  }
+  
+  gameState.stats.choicesMade++;
+  
+  // Save choice to history
+  await saveToDB('choices', {
+    timestamp: Date.now(),
+    chapterId: gameState.currentChapter,
+    choiceId: choice.id,
+    label: choice.label
+  });
+  
+  updateHUD();
+  await saveGameState();
+  
+  // Load next chapter
+  if (chapters[choice.id]) {
+    loadChapter(choice.id);
+  } else {
+    showNotification('End of Content', 'More chapters coming soon!');
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   SECTION 7: EFFECTS & REWARDS SYSTEM
+   ═══════════════════════════════════════════════════════════════════════
+   WHAT: Apply chapter effects like items, achievements, currency
+   HOW TO USE: Called automatically when chapter loads
+   EXPECTED OUTCOME: Visual feedback and state updates
+   EXPAND: Add status effects, buffs, curses, time-limited bonuses
+   ═══════════════════════════════════════════════════════════════════════ */
+
+function applyEffect(effect, container) {
+  const effectDiv = document.createElement('div');
+  effectDiv.className = 'story-effect';
+  
+  switch (effect.type) {
+    case 'item':
+      gameState.inventory.push(effect.item);
+      effectDiv.innerHTML = `<strong>✦ Item Acquired:</strong> ${effect.item.icon} ${effect.item.name} - ${effect.item.description}`;
+      showNotification('Item Found!', `${effect.item.icon} ${effect.item.name}`);
+      break;
+      
+    case 'currency':
+      gameState.currencies[effect.currency] += effect.amount;
+      const currIcon = effect.currency === 'shards' ? '💎' : effect.currency === 'wisdom' ? '🧠' : '🎲';
+      effectDiv.innerHTML = `<strong>✦ Gained:</strong> ${currIcon} ${effect.amount} ${effect.currency}`;
+      break;
+      
+    case 'achievement':
+      if (!gameState.achievements.includes(effect.achievement.id)) {
+        gameState.achievements.push(effect.achievement.id);
+        effectDiv.innerHTML = `<strong>🏆 Achievement Unlocked:</strong> ${effect.achievement.name} - ${effect.achievement.description}`;
+        showNotification('Achievement!', `🏆 ${effect.achievement.name}`);
+        saveToDB('achievements', { id: effect.achievement.id, ...effect.achievement, timestamp: Date.now() });
+      }
+      break;
+  }
+  
+  if (effectDiv.innerHTML) {
+    container.appendChild(effectDiv);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   SECTION 8: VOTING SYSTEM
+   ═══════════════════════════════════════════════════════════════════════
+   WHAT: Democratic decision-making with Fate Token wagering
+   HOW TO USE: Players vote with tokens, results influence story
+   EXPECTED OUTCOME: Community-driven narrative branches
+   EXPAND: Add vote delegation, coalition bonuses, vote history
+   ═══════════════════════════════════════════════════════════════════════ */
+
+function renderVoting(voting, container) {
+  const voteKey = `${gameState.currentChapter}_vote`;
+  const existingVote = gameState.votes[voteKey];
+  
+  const votingHTML = `
+    <div class="voting-container">
+      <div class="voting-title">⚖️ Collective Decision Required</div>
+      <p style="text-align: center; opacity: 0.9; margin-bottom: 20px;">${voting.question}</p>
+      
+      <div class="voting-options" id="voting-options">
+        ${voting.options.map((opt, idx) => {
+          const voteCount = gameState.votes[`${voteKey}_${opt.id}`] || 0;
+          const totalVotes = voting.options.reduce((sum, o) => 
+            sum + (gameState.votes[`${voteKey}_${o.id}`] || 0), 0);
+          const percentage = totalVotes > 0 ? (voteCount / totalVotes * 100).toFixed(1) : 0;
+          
+          return `
+            <div class="vote-option ${existingVote === opt.id ? 'voted' : ''}" 
+                 onclick="castVote('${voteKey}', '${opt.id}')">
+              <div class="vote-header">
+                <span class="vote-label">${opt.label}</span>
+                <span class="vote-count">${voteCount} votes (${percentage}%)</span>
+              </div>
+              <p style="opacity: 0.85; margin: 10px 0;">${opt.description}</p>
+              <div class="vote-bar">
+                <div class="vote-bar-fill" style="width: ${percentage}%"></div>
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+      
+      ${!existingVote ? `
+        <div class="vote-controls">
+          <input type="number" id="vote-tokens" class="token-input" 
+                 min="1" max="${gameState.currencies.fate}" value="1" 
+                 placeholder="Tokens">
+          <button class="btn btn-primary" onclick="confirmVote()">
+            Cast Vote (🎲 ${gameState.currencies.fate} available)
+          </button>
+        </div>
+      ` : '<p style="text-align: center; color: #00ff88; margin-top: 15px;">✓ You have cast your vote</p>'}
+    </div>
+  `;
+  
+  container.innerHTML = votingHTML;
+}
+
+let pendingVote = null;
+
+function castVote(voteKey, optionId) {
+  if (gameState.votes[voteKey]) {
+    showNotification('Already Voted', 'You have already cast your vote on this decision.');
+    return;
+  }
+  
+  pendingVote = { voteKey, optionId };
+  
+  // Visual feedback
+  document.querySelectorAll('.vote-option').forEach(el => el.style.opacity = '0.5');
+  event.currentTarget.style.opacity = '1';
+  event.currentTarget.style.border = '3px solid #ffd700';
+}
+
+async function confirmVote() {
+  if (!pendingVote) {
+    showNotification('No Selection', 'Please select an option first.');
+    return;
+  }
+  
+  const tokenInput = document.getElementById('vote-tokens');
+  const tokens = parseInt(tokenInput.value) || 1;
+  
+  if (tokens > gameState.currencies.fate) {
+    showNotification('Insufficient Tokens', 'You don\'t have enough Fate Tokens.');
+    return;
+  }
+  
+  // Apply vote multiplier if player has Fatekeeper skill
+  const voteWeight = gameState.skills.fatekeeper ? tokens * 2 : tokens;
+  
+  gameState.currencies.fate -= tokens;
+  gameState.votes[pendingVote.voteKey] = pendingVote.optionId;
+  gameState.votes[`${pendingVote.voteKey}_${pendingVote.optionId}`] = 
+    (gameState.votes[`${pendingVote.voteKey}_${pendingVote.optionId}`] || 0) + voteWeight;
+  
+  gameState.stats.votescast++;
+  
+  await saveGameState();
+  updateHUD();
+  
+  showNotification('Vote Cast!', `Your ${tokens} Fate Token(s) have been cast${gameState.skills.fatekeeper ? ' (x2 weight from Fatekeeper)' : ''}`);
+  
+  // Re-render voting to show updated results
+  const chapter = chapters[gameState.currentChapter];
+  if (chapter.voting) {
+    renderVoting(chapter.voting, document.getElementById('voting-area'));
+  }
+  
+  pendingVote = null;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   SECTION 9: XP & LEVELING SYSTEM
+   ═══════════════════════════════════════════════════════════════════════
+   WHAT: Experience points and level progression
+   HOW TO USE: Automatically awarded from choices and milestones
+   EXPECTED OUTCOME: Level ups grant currency bonuses
+   EXPAND: Add level-based unlocks, prestige system, level caps
+   ═══════════════════════════════════════════════════════════════════════ */
+
+function gainXP(amount) {
+  gameState.xp += amount;
+  
+  while (gameState.xp >= gameState.xpNeeded) {
+    gameState.xp -= gameState.xpNeeded;
+    gameState.level++;
+    gameState.xpNeeded = Math.floor(gameState.xpNeeded * 1.5);
+    
+    // Level up rewards
+    const rewards = {
+      shards: gameState.level * 10,
+      wisdom: gameState.level * 2,
+      fate: Math.floor(gameState.level / 3)
+    };
+    
+    Object.entries(rewards).forEach(([curr, amt]) => {
+      gameState.currencies[curr] += amt;
+    });
+    
+    showNotification('LEVEL UP!', `Level ${gameState.level} reached! Rewards granted.`);
+  }
+  
+  updateHUD();
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   SECTION 10: HUD UPDATE FUNCTIONS
+   ═══════════════════════════════════════════════════════════════════════
+   WHAT: Refresh all HUD displays with current game state
+   HOW TO USE: Called after any state change
+   EXPECTED OUTCOME: Real-time UI updates
+   EXPAND: Add animations, particle effects, sound cues
+   ═══════════════════════════════════════════════════════════════════════ */
+
+function updateHUD() {
+  document.getElementById('shards-display').textContent = gameState.currencies.shards;
+  document.getElementById('wisdom-display').textContent = gameState.currencies.wisdom;
+  document.getElementById('fate-display').textContent = gameState.currencies.fate;
+  document.getElementById('level-display').textContent = gameState.level;
+  document.getElementById('xp-current').textContent = gameState.xp;
+  document.getElementById('xp-needed').textContent = gameState.xpNeeded;
+  
+  const xpPercent = (gameState.xp / gameState.xpNeeded) * 100;
+  document.getElementById('xp-bar').style.width = `${xpPercent}%`;
+}
+
+function toggleHUD() {
+  document.getElementById('hud').classList.toggle('collapsed');
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   SECTION 11: INVENTORY SYSTEM
+   ═══════════════════════════════════════════════════════════════════════
+   WHAT: Item collection and display modal
+   HOW TO USE: Click inventory button in HUD
+   EXPECTED OUTCOME: Grid display of collected items
+   EXPAND: Add item usage, crafting, trading, equipment
+   ═══════════════════════════════════════════════════════════════════════ */
+
+function openInventory() {
+  const modal = document.getElementById('inventory-modal');
+  const grid = document.getElementById('inventory-grid');
+  
+  grid.innerHTML = '';
+  
+  if (gameState.inventory.length === 0) {
+    grid.innerHTML = '<p style="grid-column: 1/-1; text-align: center; opacity: 0.7;">Your inventory is empty. Explore to find items!</p>';
+  } else {
+    gameState.inventory.forEach(item => {
+      const itemDiv = document.createElement('div');
+      itemDiv.className = 'inventory-item';
+      itemDiv.innerHTML = `
+        <div class="item-icon">${item.icon}</div>
+        <div class="item-name">${item.name}</div>
+        <div class="item-description">${item.description}</div>
+      `;
+      grid.appendChild(itemDiv);
+    });
+  }
+  
+  modal.classList.add('active');
+}
+
+function closeInventory() {
+  document.getElementById('inventory-modal').classList.remove('active');
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   SECTION 12: NOTIFICATION SYSTEM
+   ═══════════════════════════════════════════════════════════════════════
+   WHAT: Toast notifications for achievements and events
+   HOW TO USE: Call showNotification(title, body)
+   EXPECTED OUTCOME: Slide-in notification that auto-dismisses
+   EXPAND: Add notification queue, priority levels, action buttons
+   ═══════════════════════════════════════════════════════════════════════ */
+
+function showNotification(title, body) {
+  const notif = document.createElement('div');
+  notif.className = 'notification';
+  notif.innerHTML = `
+    <div class="notif-title">${title}</div>
+    <div class="notif-body">${body}</div>
+  `;
+  
+  document.body.appendChild(notif);
+  
+  setTimeout(() => {
+    notif.remove();
+  }, 4000);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   SECTION 13: BREADCRUMB NAVIGATION
+   ═══════════════════════════════════════════════════════════════════════
+   WHAT: Visual story path history
+   HOW TO USE: Automatically updated on chapter transitions
+   EXPECTED OUTCOME: Clickable path showing player's journey
+   EXPAND: Add chapter replay, path comparison, alternate route preview
+   ═══════════════════════════════════════════════════════════════════════ */
+
+function updateBreadcrumbs() {
+  const container = document.getElementById('breadcrumbs');
+  const maxDisplay = 5;
+  const path = gameState.pathHistory.slice(-maxDisplay);
+  
+  const html = path.map((chapterId, idx) => {
+    const chapter = chapters[chapterId];
+    const isLast = idx === path.length - 1;
+    return `
+      <span class="breadcrumb-item">${chapter?.title || chapterId}</span>
+      ${!isLast ? '<span class="breadcrumb-separator">→</span>' : ''}
+    `;
+  }).join('');
+  
+  container.innerHTML = `<strong>Your Path:</strong> ${html}`;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   SECTION 14: INITIALIZATION & EVENT LISTENERS
+   ═══════════════════════════════════════════════════════════════════════
+   WHAT: App startup sequence and global event handlers
+   HOW TO USE: Runs automatically on page load
+   EXPECTED OUTCOME: Fully initialized game state
+   EXPAND: Add loading screen, asset preloading, error recovery
+   ═══════════════════════════════════════════════════════════════════════ */
+
+async function init() {
+  try {
+    await initDB();
+    await loadGameState();
+    initMnemonicGrid();
+    updateHUD();
+    
+    // Check if returning player
+    if (gameState.mnemonic && gameState.mnemonic.length > 0) {
+      // Skip splash for returning players
+      document.getElementById('splash').style.display = 'none';
+      document.getElementById('story-container').classList.add('active');
+      loadChapter(gameState.currentChapter);
+    }
+    
+    console.log('ZeroStorm initialized successfully');
+  } catch (error) {
+    console.error('Initialization error:', error);
+    showNotification('Error', 'Failed to initialize game. Please refresh.');
+  }
+}
+
+// Global event listeners
+document.addEventListener('DOMContentLoaded', init);
+
+// Keyboard shortcuts
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    closeSkills();
+    closeInventory();
+  }
+  
+  if (e.key === 's' && e.ctrlKey) {
+    e.preventDefault();
+    saveGameState();
+    showNotification('Game Saved', 'Your progress has been saved.');
+  }
+});
+
+// Auto-save every 30 seconds
+setInterval(() => {
+  if (gameState.currentChapter !== 'start') {
+    saveGameState();
+  }
+}, 30000);
+
+/* ═══════════════════════════════════════════════════════════════════════
+   SECTION 15: EXPORT & ANALYTICS (Privacy-First)
+   ═══════════════════════════════════════════════════════════════════════
+   WHAT: Save export and anonymous usage analytics
+   HOW TO USE: Click export button to download save file
+   EXPECTED OUTCOME: JSON file download with full game state
+   EXPAND: Add cloud sync, cross-device play, leaderboards
+   ═══════════════════════════════════════════════════════════════════════ */
+
+function exportSaveData() {
+  const saveData = {
+    version: '1.0',
+    timestamp: Date.now(),
+    gameState: gameState
+  };
+  
+  const blob = new Blob([JSON.stringify(saveData, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `zerostorm_save_${Date.now()}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  
+  showNotification('Export Complete', 'Your save file has been downloaded.');
+}
+
+// Anonymous analytics (no PII, local only)
+function logAnalytics(event, data = {}) {
+  const analyticsEntry = {
+    timestamp: Date.now(),
+    event: event,
+    data: data,
+    session: gameState.id
+  };
+  
+  // Store locally for daily summary
+  const logs = JSON.parse(localStorage.getItem('zerostorm_analytics') || '[]');
+  logs.push(analyticsEntry);
+  localStorage.setItem('zerostorm_analytics', JSON.stringify(logs));
+  
+  // Send daily summary (if enabled and > 24 hours since last send)
+  // This would connect to your planetaryrestorationarchive.com analytics endpoint
+  // Implementation left as placeholder for your backend integration
+}
+
+</script>
+
+<!-- ═══════════════════════════════════════════════════════════════════════
+     ATTRIBUTIONS & LICENSES
+     ═══════════════════════════════════════════════════════════════════════
+     
+     This project adapts patterns from open-source projects:
+     
+     - IndexedDB wrapper patterns: Mozilla Developer Network (CC0)
+     - Gamification HUD design: Inspired by Fortnite (Epic Games) - UI patterns only
+     - Skill tree visualization: Path of Exile (Grinding Gear Games) - structure only
+     - Mnemonic word lists: BIP39 standard (public domain wordlists)
+     - CSS animations: Animate.css (MIT License)
+     
+     All code written by Foster + Navi for Planetary Restoration Archive
+     License: MIT License (see repository)
+     
+     ZERO-HARM COMMITMENT:
+     This tool is designed for creative storytelling and education.
+     Not for surveillance, manipulation, or extraction.
+     All data stays on user's device.
+     
+     ═══════════════════════════════════════════════════════════════════════ -->
+
+<noscript>
+  <div style="position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: #000; color: #fff; font-family: sans-serif; text-align: center; padding: 20px;">
+    <div>
+      <h1>JavaScript Required</h1>
+      <p>ZeroStorm requires JavaScript to function. Please enable JavaScript in your browser settings.</p>
+    </div>
+  </div>
+</noscript>
+
+</body>
+</html>
